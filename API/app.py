@@ -1,72 +1,44 @@
-from flask import Flask, jsonify, request, render_template
+from flask import Flask, request
+from flask_restful import Resource, Api
+from flask_jwt import JWT, jwt_required
+
+from security import authenticate, identity
 
 app = Flask(__name__)
+app.secret_key = '####'
+api = Api(app)
 
-#print(__name__)
-
-stores = [
-    {
-'name': 'My Store 1',
-'items': [{
-    'name': 'item1',
-    'price': 16.00
-        }
-    ]
-    },
-    {
-'name': 'My Store 2',
-'items': [{
-    'name': 'item2',
-    'price': 17.00
-        }
-    ]
-    }
-]
-
-@app.route('/')
-def home():
-    return render_template('index.html')
-
-@app.route('/store', methods=['POST'])
-def create_store():
-    request_data = request.get_json()
-    #print(request_data)
-    new_store = {
-    'name': request_data['name'],
-    'items': []
-    }
-    stores.append(new_store)
-    return jsonify({"message": "Successfully added new store"})
-
-@app.route('/store/<string:name>/items', methods=['POST'])
-def add_items(name):
-    request_data = request.get_json()
-    for store in stores:
-        if store['name'] == name:
-            new_item = {
-                'name': request_data['name'],
-                'price': request_data['price']
-            }
-            store['items'].append(new_item)
-            return jsonify(new_item)
-
-    return jsonify({"message": "Store not found. Add store first"})
+jwt=JWT(app, authenticate, identity)
 
 
-@app.route('/store')
-def get_stores():
-    return jsonify({'stores': stores})  #list converted to dict passed as json
+items = []
 
-@app.route('/store/<string:name>')
-def list_store(name):
-    for store in stores:
-        if store['name'] == name:
-            return jsonify(store)    #dict passed as json
+class Item(Resource):
+    @jwt_required()
+    def get(self, name):
+        # for item in items:
+        #     if item['name'] == name:
+        #         return item
+        item = next(filter(lambda x: x['name'] == name, items),None)
+        return {'item': item}, 200 if item is not None else 404
 
-@app.route('/store/<string:name>/items')
-def get_items(name):
-    for store in stores:
-        if store['name'] == name:
-            return jsonify({'items': store['items']})
+    def post(self, name):
+        if next(filter(lambda x: x['name'] == name, items),None):
+            return ({'message': f'An item with the name {name} already exists'},
+             400)
 
-    return jsonify({"message": "Store not found"})
+        request_data = request.get_json()
+        item = {'name': name, 'price': request_data['price']}
+        items.append(item)
+        return item, 201
+
+class ItemList(Resource):
+    def get(self):
+        return {'items': items}
+
+
+api.add_resource(Item, '/item/<string:name>')  #http://127.0.0.1/5000/item/<name>
+api.add_resource(ItemList, '/items')
+
+if __name__ == "__main__":
+    app.run(port=5000, debug=True)
