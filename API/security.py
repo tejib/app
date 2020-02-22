@@ -11,7 +11,7 @@ username_table = { u.username : u for u in users}
 # users dict with userid as key
 userid_table ={u.id : u for u in users}
 
-def authenticate(username, password):
+def authenticate(username, password):          # /auth route
     '''Validates if a username is present'''
     user = username_table.get(username, None)
     if user is not None and safe_str_cmp(password,user.password):
