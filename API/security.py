@@ -1,19 +1,20 @@
 from werkzeug.security import safe_str_cmp
 from user import User
 
-users = [
-    User(1, 'joe', 'password')
-]
-
-# users dict with username as key
-username_table = { u.username : u for u in users}
-
-# users dict with userid as key
-userid_table ={u.id : u for u in users}
+# users = [
+#     User(1, 'joe', 'password')
+# ]
+#
+# # users dict with username as key
+# username_table = { u.username : u for u in users}
+#
+# # users dict with userid as key
+# userid_table ={u.id : u for u in users}
 
 def authenticate(username, password):          # /auth route
     '''Validates if a username is present'''
-    user = username_table.get(username, None)
+    # user = username_table.get(username, None)
+    user = User.find_by_username(username)
     if user is not None and safe_str_cmp(password,user.password):
         #return user.id, user.username, user.password'
         return user
@@ -21,7 +22,8 @@ def authenticate(username, password):          # /auth route
 def identity(payload):
     '''Validates if a userid is present'''
     user_id = payload['identity']
-    return userid_table.get(user_id, None)
+    # return userid_table.get(user_id, None)
+    return User.find_by_userid(user_id)
 
 
 #print(authenticate('joe', 'password'))
