@@ -1,4 +1,3 @@
-import sqlite3
 from flask_restful import Resource, reqparse
 from flask_jwt import jwt_required
 from models.item import ItemModel
@@ -8,6 +7,7 @@ class Item(Resource):
 
     parser = reqparse.RequestParser()
     parser.add_argument('price', type=float, required=True, help='Price is required')
+    parser.add_argument('store_id', type=int, required=True, help='StoreId is required')
     #parser.add_argument('category')  In case we want to add addl arguments
 
     @jwt_required()
@@ -15,7 +15,7 @@ class Item(Resource):
         item = ItemModel.find_by_name(name)
         if item:
             return item.json()
-        return {'message': 'Item not found'}
+        return {'message': 'Item not found'}, 404
 
 
     def post(self, name):
@@ -24,10 +24,10 @@ class Item(Resource):
 
         request_data = self.parser.parse_args()
 
-        item = ItemModel(name, request_data['price'])
+        item = ItemModel(name, request_data['price'], request_data['store_id'])
 
         try:
-            item.insert()
+            item.save_to_db()
         except:
             return {'message':'An error occured while inserting data'}, 500
 
@@ -35,50 +35,37 @@ class Item(Resource):
         return item.json(), 201
 
     def delete(self, name):
-        connection = sqlite3.connect('data.db')
-        cursor = connection.cursor()
 
-        delete_item = "DELETE FROM item WHERE itemname=?"
-
-        cursor.execute(delete_item, (name,))
-        connection.commit()
-        connection.close()
+        item = ItemModel.find_by_name(name)
+        if item:
+            item.delete_from_db()
 
         return {'message':'Item deleted'}
-
-
 
     def put(self, name):
         '''Use parser to ensure only the valid arguments will be updated'''
         request_data = Item.parser.parse_args()
 
-        if ItemModel.find_by_name(name):
-            try:
-                ItemModel(name, request_data['price']).update()
-            except:
-                return {'message':'An error occured in update'}, 500
+        item = ItemModel.find_by_name(name)
+
+        if item is None:
+            item = ItemModel(name, request_data['price'], request_data['store_id'])
         else:
-            try:
-                ItemModel(name, request_data['price']).insert()
-            except:
-                return {'message':'An error occured in insert'}, 500
+            item.price = request_data['price']
 
+        item.save_to_db()
 
-        return ItemModel.find_by_name(name).json(), 200
+        return item.json(), 200
 
 
 class ItemList(Resource):
     def get(self):
         # return {'items': items}
-        items = []
-        connection = sqlite3.connect('data.db')
-        cursor = connection.cursor()
+        # Longer way. Using list comprehension is simpler
+        #items = []
+        # for item in ItemModel.item_list():
+        #     items.append(dict(name=item.name, price=item.price))
+        #
+        # return  {'items': items}
 
-        query_items = 'SELECT * from item'
-
-        for row in cursor.execute(query_items):
-            items.append(dict(name=row[0], price= row[1]))
-
-        connection.close()
-
-        return  {'items': items}
+        return {'items': [item.json() for item in ItemModel.query.all()]}
