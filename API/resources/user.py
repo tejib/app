@@ -17,3 +17,7 @@ class UserRegister(Resource):
 
         UserModel(request_data['username'], request_data['password']).save_to_db()
         return {"message": "User created successfully"}, 201
+
+class UserList(Resource):
+    def get(self):
+        return {'users': [user.json() for user in UserModel.query.all()]}
